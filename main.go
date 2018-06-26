@@ -23,7 +23,42 @@ func main() {
 	//CrawLineIdUpdownList()
 	//获取线路站台
     //CrawLineStation()
+    //获取线路信息
+    CrawLineInfo()
 
+}
+
+func CrawLineInfo() {
+	db, err := utils.OpenConnection()
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+	defer db.Close()
+
+	var lines []models.DbLineModel
+	db.Raw("select line_id,line_name from btk_lines").Find(&lines)
+	for i:=0; i<len(lines);i++  {
+		resp, err := http.Get("http://xxbs.sh.gov.cn:8080/weixinpage/HandlerBus.ashx?action=One&name="+lines[i].LineName)
+		if err != nil {
+			// handle error
+		}
+
+		// defer resp.Body.Close()
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			fmt.Println("err is",err.Error())
+		}else{
+			fmt.Println("resp is",string(body))
+			var lineinfo models.UpdownModel
+			err1 := jsonf.Unmarshal(body, &lineinfo)
+			if err1!= nil {
+				fmt.Println("err1.err is",err1.Error())
+			}else{
+				db.Exec("update btk_lines set end_earlytime=?,end_latetime=?,end_stop=?,start_earlytime=?,start_latetime=?,start_stop=? where line_id=?",lineinfo.EndEarlytime,lineinfo.EndLatetime,lineinfo.EndStop,lineinfo.StartEarlytime,lineinfo.StartLatetime,lineinfo.StartStop,lines[i].LineId)
+				fmt.Println("update btk_lines set end_earlytime=?,end_latetime=?,end_stop=?,start_earlytime=?,start_latetime=?,start_stop=? where line_id=?",lineinfo.EndEarlytime,lineinfo.EndLatetime,lineinfo.EndStop,lineinfo.StartEarlytime,lineinfo.StartLatetime,lineinfo.StartStop,lines[i].LineId)
+			}
+		}
+	}
 }
 
 func CrawLineStation() {
